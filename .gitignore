@@ -1,0 +1,31 @@
+# 依赖与构建产物（不入库）
+node_modules/
+*.tgz
+*.zip
+
+# 调研目录：只入库本项目自己的分析与计划文档。
+# 其余为第三方项目源码摘录 / 官方包解包 / 仓库元数据缓存 —— 不入库，
+# 原因：① 体积；② 第三方代码在缺少其 LICENSE 文件的情况下再分发有授权风险。
+research/*
+!research/REPORT.md
+!research/PLAN.md
+!research/README.md
+
+# DSH 运行期临时产物
+profiles/
+sessions/
+storages/
+*.log
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 临时与调试
+*.tmp
+*.bak
+.tmp/
+scratch/
