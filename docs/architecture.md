@@ -8,24 +8,43 @@
 
 ## 1. 全局定位
 
-本项目是 **DSH 的一个 bundle 插件**，运行在 DSH 的两个半边：
+本项目是 **DSH 的一个 bundle 插件**，运行在 DSH 的两个半边。
+但它同时是一个**引擎与内容分离的框架**：代码只负责渲染，外观数据来自用户目录。
 
 ```
 ┌──────────────────────────── DSH 进程 ────────────────────────────┐
 │                                                                  │
 │  ┌─── Host 半边（Node）──────────┐   ┌─── Client 半边（浏览器）──┐ │
 │  │  index.js                     │   │  client.js                │ │
-│  │  · webServer 素材路由          │   │  · theme.overrideTokens   │ │
-│  │  · webserver/index-inject 首帧 │   │  · slots 注册 overlay     │ │
-│  │                               │   │  · 注入 theme.css         │ │
-│  └───────────────────────────────┘   └───────────────────────────┘ │
-│              │                                     ▲              │
-│              │ 静态素材 / 首帧注入行                 │ 页面加载后求值  │
-│              └─────────────────────────────────────┘              │
+│  │  · 配置加载与校验              │   │  · theme.overrideTokens   │ │
+│  │  · 素材解析（用户优先）         │   │  · slots 注册 overlay     │ │
+│  │  · webServer 素材路由          │   │  · 注入 theme.css         │ │
+│  │  · webserver/index-inject 首帧 │   │  · 按配置驱动动效          │ │
+│  │  · DSH 版本探测与安全模式       │   │                           │ │
+│  └────────────┬──────────────────┘   └───────────▲───────────────┘ │
+│               │                                   │                │
+│               │ 素材 / 配置视图 / 首帧注入行         │ 页面加载后求值   │
+│               └───────────────────────────────────┘                │
 └──────────────────────────────────────────────────────────────────┘
+        ▲
+        │ 读取（逐项覆盖：用户优先，缺失回退内置）
+        │
+┌───────┴──────────────────────┐   ┌─────────────────────────┐
+│ $DSH_HOME/boujoy/            │   │ 插件包内 assets/         │
+│ ├── boujoy.config.yml        │   │ （内置默认，升级时覆盖）  │
+│ ├── assets/                  │   │                         │
+│ └── overrides.css            │   │                         │
+└──────────────────────────────┘   └─────────────────────────┘
+   用户内容（升级/卸载都不动它）
 ```
 
-**关键点**：两个半边**职责不同、启动时机不同**。搞混这一点是本项目最大的技术陷阱。
+**三个必须分清的时间/空间维度**：
+
+| 维度 | 内容 |
+|---|---|
+| **两个半边** | host（Node，早）vs client（浏览器，晚）—— 见 §3 |
+| **两个目录** | 用户目录（不可覆盖）vs 内置目录（随包升级）—— 见 §4.0 |
+| **两层数据** | 引擎（代码）vs 内容（素材与配置）—— 见 §4.6 |
 
 ---
 
@@ -111,7 +130,34 @@ window.__boujoyFirstFrame = { end: end }                     // client 就绪后
 
 ---
 
-## 4. 运行时的三条数据流
+## 4. 运行时的数据流
+
+### 4.0 配置与素材解析（框架的核心，先于其他所有流）
+
+```
+host 启动
+  │
+  ├─ ① 读 $DSH_HOME/boujoy/boujoy.config.yml
+  │     ├─ 不存在  → 全用内置默认（首次安装的正常路径）
+  │     └─ 存在    → 解析 + 校验 + 与默认值深度合并
+  │                  ⚠️ 校验失败时：坏字段回退默认并报错，不让整体失效
+  │
+  ├─ ② 解析素材（逐项覆盖，不是整目录替换）
+  │     对每个槽位依次检查：
+  │       $DSH_HOME/boujoy/<配置指定路径>  →  用户目录同名文件  →  内置 assets/同名  →  隐藏该元素
+  │
+  ├─ ③ 生成运行时产物
+  │     GET /boujoy/theme.css    内置 CSS + 配置生成的变量 + 用户 overrides.css
+  │     GET /boujoy/config.json  配置的运行时视图（不含敏感路径）
+  │     GET /boujoy/assets/<名>  解析后的实际文件
+  │
+  └─ ④ DSH 版本探测 → 决定是否进入安全模式
+```
+
+**优先级（高 → 低）**：`overrides.css` → 配置里的具体 token → 配置里的简写 → 用户素材 → 内置默认。
+
+> 详细规范见 [`asset-library.md`](./asset-library.md)，能力矩阵见
+> [`features-customization.md`](./features-customization.md)。
 
 ### 4.1 素材流（host → 浏览器）
 
@@ -226,25 +272,55 @@ $DSH_HOME/profiles/web/
 
 ## 7. 目录结构规划
 
+### 7.1 插件包内
+
 ```
 boujoy-harness/
 ├── README.md
 ├── AGENTS.md
-├── docs/                    # 文档（已建立）
-├── research/                # 调研资料（已建立）
-└── plugin/                  # P0 建立
+├── CHANGELOG.md
+├── docs/                          # 文档（已建立）
+├── research/                      # 调研资料（已建立）
+├── examples/                      # 🆕 示例素材包（供用户照抄改）
+│   ├── boujoy.config.yml
+│   └── assets/
+└── plugin/                        # P0 建立
     ├── package.json
     ├── cordis.patch.yml
-    ├── index.js             # host：素材路由 + 首帧注入
-    ├── client.js            # client：token + overlay + CSS 注入 + 对话动画
-    ├── theme.css            # A/C 层样式
-    ├── overrides.tier3.css  # 三级选择器收容文件（见 DESIGN.md §4.2）
-    ├── first-frame.js       # 首帧注入的 CSS/JS 字符串（host 用）
-    └── assets/
+    ├── index.js                   # host 入口
+    ├── client.js                  # client 入口
+    ├── lib/                       # 🆕 host 侧模块化
+    │   ├── config.js              #   配置加载 + 校验 + 默认合并
+    │   ├── assets.js              #   素材解析（用户优先 / 回退内置）
+    │   ├── routes.js              #   素材路由（路径穿越防护）
+    │   ├── first-frame.js         #   首帧 CSS/JS 字符串 + 看门狗
+    │   ├── version.js             #   DSH 版本探测 + 安全模式判定
+    │   └── safe-mode.js           #   安全模式状态与降级
+    ├── css/
+    │   ├── theme.css              # A/C 层样式
+    │   ├── splash.css             # 开屏
+    │   ├── ambience.css           # 氛围层
+    │   └── overrides.tier3.css    # 三级选择器收容文件（见 DESIGN.md §4.2）
+    └── assets/                    # 内置默认素材（可被用户目录逐项覆盖）
         ├── logo.svg
-        ├── fonts/*.woff2
-        └── textures/*
+        ├── logo-mark.svg
+        ├── fonts/
+        ├── textures/
+        └── boot/
 ```
+
+### 7.2 用户目录（与插件包完全分离）
+
+```
+$DSH_HOME/boujoy/
+├── boujoy.config.yml      # 用户配置
+├── assets/                # 用户素材（同名覆盖内置）
+│   ├── logo.svg
+│   ├── fonts/
+│   ├── textures/
+│   └── boot/
+├── overrides.css          # 逃生舱：任意 CSS
+└── .state.json            # 运行状态（启动失败次数、安全模式标记）⚠️ 实现时确认
 
 ---
 

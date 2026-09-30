@@ -11,11 +11,12 @@
 | 项 | 值 |
 |---|---|
 | 项目名 | **Boujoy Harness** |
-| 类型 | DSH（DeepSeek Harness）**主题插件** —— 不是独立应用 |
+| 类型 | DSH（DeepSeek Harness）**界面自定义框架**（默认内容是一套主题）—— 不是独立应用 |
 | 目标环境 | DSH `0.2.0-rc.2`（当前桌面版），开发用独立 `web` profile |
 | 当前阶段 | **规划与调研完成，工程代码为 0** |
-| 交付形态 | 一个 npm 包（bundle）：`package.json` + `cordis.patch.yml` + host `index.js` + client `client.js` + 素材 |
-| 核心难点 | 开屏动画的 **271ms 空窗**；对话动画是**生态空白**（无先例可抄） |
+| 交付形态 | 一个 npm 包（bundle）+ 用户可覆盖的 `$DSH_HOME/boujoy/` 内容目录 |
+| 核心设计 | **引擎与内容分离**：代码只渲染，外观全在用户素材与配置里 |
+| 核心难点 | 开屏动画的 **271ms 空窗**；对话动画是**生态空白**；DSH **1.77 天一个版本**的适配压力 |
 
 ---
 
@@ -27,9 +28,22 @@
 2. [`docs/TODO.md`](./docs/TODO.md) —— **当前进度与下一步**（跨会话续作的第一站）
 3. [`docs/project-overview.md`](./docs/project-overview.md) —— 目标与范围
 4. [`docs/architecture.md`](./docs/architecture.md) —— 技术框架，动手前必读
-5. 按任务需要：`docs/DESIGN.md`（改视觉时）、`docs/development.md`（跑命令时）、`docs/component-api.md`（调 API 时）
+5. [`docs/asset-library.md`](./docs/asset-library.md) —— **框架目标的实现规范**（改自定义能力时必读）
+6. 按任务需要：`docs/DESIGN.md`（改视觉时）、`docs/features-customization.md`（改能力时）、
+   `docs/VERSIONING.md`（涉及版本/兼容时）、`docs/development.md`（跑命令时）、
+   `docs/component-api.md`（调 API 时）
 
 > 只有 `docs/user-guide.md` 是给最终用户看的，AI 不需要主动读，除非要改用户文档。
+
+### 1.1 项目定位（别搞错）
+
+这不是"一套固定皮肤"，而是**素材与配置驱动的界面自定义框架**：
+
+- **引擎**（本仓库代码）只负责渲染
+- **内容**（`$DSH_HOME/boujoy/`）是用户的素材与配置
+- 两者严格分离：升级引擎不覆盖内容，换内容不需要动引擎
+
+任何设计决策都要先问：**"这属于引擎还是内容？"**
 
 ---
 
@@ -169,5 +183,36 @@
 | B2 | 视觉定位（主色 + 强调色 + 风格定义） | P1–P4 |
 | B3 | **第二个参考项目名称**（用户只在视频里看过，未给名称） | P5 之前 |
 | B4 | 对话动画路线选择（轻量 / 重度） | P5 |
+| B8 | 配置文件格式与文件名（YAML vs JSON、`boujoy.config.yml`？） | P0 |
+| B9 | 用户自定义目录定名（建议 `$DSH_HOME/boujoy/`） | P0 |
 
 > 阻塞项与待办详见 [`docs/TODO.md`](./docs/TODO.md)。
+
+---
+
+## 10. 🆕 版本适配纪律（因 DSH 迭代极快，单列一节）
+
+**实测数据**：DSH 在 49.6 天内发布 **29 个版本**，平均 **1.77 天一个版本**；
+且所有子包的 npm `latest` 停在 `0.0.1-rc.1`（与本体 `0.2.0-rc.2` 严重脱节）。
+
+因此：
+
+| 纪律 | 说明 |
+|---|---|
+| **只声明验证过的版本** | 不写 `>=0.1.0` 这类宽泛范围；兼容矩阵每行必须对应一次真实验证 |
+| **插件版本与 DSH 版本解耦** | 不为 DSH 改个数字就跟发版；只在接缝真的变了才适配 |
+| **子包依赖显式指定版本** | 用 `latest` 会装到两个月前的版本 |
+| **任何接缝失效都要能降级** | 单点失效不得导致整体崩溃（见下） |
+| **升级适配必须更新 `CHANGELOG.md` 的 `Adapted` 段** | 记录适配的 DSH 版本 + 改动的接缝 |
+
+**必须能降级的关键路径**：
+
+| 失效点 | 降级行为 |
+|---|---|
+| 首帧注入失效 | 退回纯 client 开屏（漏 271ms，功能正常） |
+| 素材 404 / 损坏 | 回退内置同名素材；再无则隐藏元素 |
+| `data-*` 属性改名 | 该组 CSS 失效，样式局部丢失（不崩） |
+| `[data-dsh-boot]` 改名 | 看门狗退化为 12s 绝对超时（不崩） |
+| DSH 版本超范围 | **安全模式**：只应用 token，不注入 CSS、不播动画 |
+
+> 完整策略见 [`docs/VERSIONING.md`](./docs/VERSIONING.md)。
