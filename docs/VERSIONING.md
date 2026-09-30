@@ -12,7 +12,51 @@
 
 ## 1. DSH 的版本节奏【实测】
 
-### 1.1 硬数据
+### 1.1 官方变更记录在哪里【实测】
+
+这是本项目的"版本记录"能力的**数据来源**：
+
+| 来源 | 状态 | 说明 |
+|---|---|---|
+| GitHub **Releases** | ✅ **存在且内容完整** | tag 形如 `dsh-v0.2.0-rc.2`，release notes 中英双语 |
+| GitHub **Releases Atom feed** | ✅ **推荐**（机器可读） | `https://github.com/deepseek-ai/deepseek-harness/releases.atom` |
+| 仓库根 `CHANGELOG.md` | ❌ **不存在**（HTTP 404） | 官方不维护独立 CHANGELOG 文件 |
+
+**官方 release notes 的分类结构【实测】**：
+
+```
+✨ 新增功能 / New Features
+🐛 问题修复 / Bug Fixes
+🎨 体验优化 / Improvements
+⚠️ 其他变更 / Chores
+（末尾附 Full Changelog: compare/<old>...<new> 链接）
+```
+
+> ⭐ **重要**：官方这套分类与本项目 [`CHANGELOG.md`](../CHANGELOG.md) 的分类高度一致
+> （Added / Fixed / Changed + 本项目特有的 Adapted）。
+> 因此**可以近乎自动地**把官方 release notes 映射成本项目的适配记录。
+
+### 1.2 与本项目直接相关的一条官方变更【实测】
+
+`v0.2.0-rc.2` 的「体验优化」里明确写着：
+
+> **优化聊天耗时、过程信息、字号和深色主题样式，优化动画运行开销。**
+
+`v0.2.0-rc.1` 的「体验优化」里写着：
+
+> **优化对话进行中和完成状态的实时动画、用时信息、过程信息间距。**
+
+**这两条同时是机会和风险**：
+
+| 维度 | 含义 |
+|---|---|
+| ⚠️ **风险** | 官方自己在动「深色主题样式」「对话动画」「字号」——**正好压在本项目的作业面上**，意味着我们的 C 层覆盖和对话动效会被官方改动冲击 |
+| ✅ **机会** | 官方在投入动画优化，说明这个方向被认可；我们可以对齐它的节奏而不是对抗 |
+
+→ 这进一步强化了 [选择器分级纪律](./DESIGN.md#4--选择器分级纪律本项目最重要的规范) 的必要性：
+**凡是官方正在主动演进的区域（深色主题、对话动画、字号），CSS 覆盖都要按最高警戒级别对待。**
+
+### 1.3 硬数据
 
 从 npm registry 抓取 `@deepseek-ai/dsh` 的全部发布记录：
 
@@ -256,13 +300,29 @@ DSH 发布新版本
 
 按成本从低到高：
 
-1. **看 token 差异**：对比新旧版本的 `--dsw-alias-*` 清单（本项目已实测可提取）
-2. **看 slot 树差异**：对比 `cordis_inspect_query` 的 slot 清单
-3. **看 `data-*` 属性**：在官方包产物里 grep 本项目用到的属性名
-4. **看关键事件**：`webserver/index-inject` 是否仍在
-5. **跑回归清单**：最可靠，也最费时
+1. **读官方 release notes**（最省事）：抓 `releases.atom`，看是否有落在本项目作业面上的条目
+   —— 尤其是「深色主题样式」「对话动画」「字号」「插件」「设置」相关
+2. **看 token 差异**：对比新旧版本的 `--dsw-alias-*` 清单（本项目已实测可提取）
+3. **看 slot 树差异**：对比 `cordis_inspect_query` 的 slot 清单
+4. **看 `data-*` 属性**：在官方包产物里 grep 本项目用到的属性名
+5. **看关键事件**：`webserver/index-inject` 是否仍在
+6. **跑回归清单**：最可靠，也最费时
 
-> 前 4 项能在不启动服务的情况下完成，适合做"是否需要投入适配"的前置判断。
+> 前 5 项能在不启动服务的情况下完成，适合做"是否需要投入适配"的前置判断。
+
+### 6.2 官方 release notes 的抓取方式（可脚本化）
+
+```powershell
+# Atom feed，纯 XML，比抓 HTML 页面可靠得多
+Invoke-WebRequest "https://github.com/deepseek-ai/deepseek-harness/releases.atom" -UseBasicParsing
+```
+
+**注意**：GitHub 的 release **HTML 页面抓不到正文**（返回的是导航框架），
+`raw.githubusercontent.com/.../CHANGELOG.md` 是 404。
+**Atom feed 是唯一稳定的机器可读来源。**
+
+> 后续可做成 P6 阶段的一个辅助脚本：自动拉最新 release notes，与本项目 `CHANGELOG.md`
+> 的分类对齐，生成"是否需要适配"的初判报告。
 
 ---
 
@@ -278,13 +338,23 @@ DSH 发布新版本
 
 ## 附：数据来源
 
-| 数据 | 来源 | 获取方式 |
-|---|---|---|
-| 29 个版本与发布时间 | npm registry | `https://registry.npmjs.org/@deepseek-ai%2Fdsh` |
-| dist-tags 与子包滞后 | npm registry | 各包的 `dist-tags` 字段 |
-| license 变更 | npm registry | 各版本 manifest 的 `license` |
-| 接缝风险分层 | 本项目调研 | 见 [`../research/REPORT.md`](../research/REPORT.md) |
-| 破坏性变更清单 | 【调研】 | 详见下一节（待补） |
+| 数据 | 来源 | 获取方式 | 等级 |
+|---|---|---|---|
+| 29 个版本与发布时间 | npm registry | `https://registry.npmjs.org/@deepseek-ai%2Fdsh` | 【实测】 |
+| dist-tags 与子包滞后 | npm registry | 各包的 `dist-tags` 字段 | 【实测】 |
+| license 变更 | npm registry | 各版本 manifest 的 `license` | 【实测】 |
+| 官方 release notes 位置与结构 | GitHub Releases | `releases.atom`（HTML 页抓不到正文） | 【实测】 |
+| 「优化深色主题样式/对话动画」条目 | `v0.2.0-rc.2` / `v0.2.0-rc.1` release notes | 同上 | 【实测】 |
+| 接缝风险分层 | 本项目调研 | 见 [`../research/REPORT.md`](../research/REPORT.md) | 【调研】 |
+| `settingsScope` 更名影响 | 社区 issue | `dsh-market/dsh-market#722`（抓取失败，仅搜索结果） | **未确认** |
 
-> ⚠️ 待补：逐版本的破坏性变更清单与出处 URL。
-> 该项调研进行中，完成后会追加到本节。
+### 待补：逐版本破坏性变更清单
+
+| 状态 | 说明 |
+|---|---|
+| ⏳ 进行中 | 一次专门的破坏性变更调研正在进行，完成后会补入本节 |
+| 已知线索（**均未逐一验证**） | ① `@deepseek-ai/dsh-client-runtime` 在 0.1.2 被删除<br>② `ctx.httpServer` → `ctx.webServer` 更名<br>③ `ctx.workspace` → `ctx.workspaceRegistry` 更名<br>④ settings API 在 0.1.7-rc.1 被替换（`settingsScope` → `configForms`）<br>⑤ slot 系统是否有破坏性调整 |
+
+> ⚠️ 上表线索来自社区项目的兼容说明与搜索结果，**尚未逐条核实出处**。
+> 在写进正式结论前，必须以官方 release notes 或源码为准确认。
+
