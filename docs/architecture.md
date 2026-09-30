@@ -281,9 +281,12 @@ boujoy-harness/
 ├── CHANGELOG.md
 ├── docs/                          # 文档（已建立）
 ├── research/                      # 调研资料（已建立）
+├── skills/                        # 🆕 Agent 能力（随插件分发）
+│   └── boujoy-theme-setup/
+│       └── SKILL.md               #   素材适配 Skill（用户侧零配置的关键）
 ├── examples/                      # 🆕 示例素材包（供用户照抄改）
 │   ├── boujoy.config.yml
-│   └── assets/
+│   └── inbox/                     #   放几张示例素材，演示"丢进去就行"
 └── plugin/                        # P0 建立
     ├── package.json
     ├── cordis.patch.yml
@@ -291,11 +294,13 @@ boujoy-harness/
     ├── client.js                  # client 入口
     ├── lib/                       # 🆕 host 侧模块化
     │   ├── config.js              #   配置加载 + 校验 + 默认合并
+    │   ├── slots.js               #   🆕 槽位规格（机器可读，Skill 与 doctor 共用）
     │   ├── assets.js              #   素材解析（用户优先 / 回退内置）
-    │   ├── routes.js              #   素材路由（路径穿越防护）
+    │   ├── doctor.js              #   🆕 诊断与校验（含 inbox 未匹配检测）
+    │   ├── skill.js               #   🆕 注册适配 Skill 到 ctx.skills
+    │   ├── routes.js              #   素材路由（鉴权 + 路径穿越防护）
     │   ├── first-frame.js         #   首帧 CSS/JS 字符串 + 看门狗
-    │   ├── version.js             #   DSH 版本探测 + 安全模式判定
-    │   └── safe-mode.js           #   安全模式状态与降级
+    │   └── version.js             #   DSH 版本探测
     ├── css/
     │   ├── theme.css              # A/C 层样式
     │   ├── splash.css             # 开屏
@@ -313,14 +318,11 @@ boujoy-harness/
 
 ```
 $DSH_HOME/boujoy/
-├── boujoy.config.yml      # 用户配置
-├── assets/                # 用户素材（同名覆盖内置）
-│   ├── logo.svg
-│   ├── fonts/
-│   ├── textures/
-│   └── boot/
+├── inbox/                 # 🆕 ★ 用户唯一需要管的目录：随便丢素材，文件名随意
+├── assets/                # Agent 适配后的产物（可读可改，不建议手写）
+├── boujoy.config.yml      # Agent 生成的配置（用户可手改，但非必须）
 ├── overrides.css          # 逃生舱：任意 CSS
-└── .state.json            # 运行状态（启动失败次数、安全模式标记）⚠️ 实现时确认
+└── .history/              # 🆕 Agent 改动前的备份（可回滚）
 
 ---
 

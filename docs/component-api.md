@@ -351,29 +351,83 @@ export function apply(ctx) {
 > 以下为 P0 之后要实现的**规划签名**，实现后必须回来替换为真实签名并补充示例。
 > 命名遵循 `AGENTS.md` 与 `DESIGN.md` §5 的规范（类名前缀 `bj-`，变量前缀 `--bj-`）。
 
-## 5. Host 半边（`index.js`）
+## 5. 本项目自有 API（规划）
 
-### 5.1 插件元数据（规划）
+### 5.1 Host 侧技能注册（Agent 适配能力的载体）
+
+DSH 官方 skills 服务【实测存在】，本项目用它把"素材适配"能力随插件分发：
+
+```ts
+// index.js（host 半边）
+export const inject = ['webServer', 'skills']
+
+export function apply(ctx) {
+  // 注册一个 runtime skill（落在 calling context 的层）
+  ctx.skills.register({
+    name: 'boujoy-theme-setup',            // kebab-case
+    description: '把用户素材适配成 Boujoy 主题外观…',
+    content: SKILL_MARKDOWN,               // skills/boujoy-theme-setup/SKILL.md 的内容
+  })
+}
+```
+
+**官方 `skills` 服务契约【实测】**：
+
+| 方法 | 签名 |
+|---|---|
+| `register` | `(skill: SkillRegistration): () => void` |
+| `registerProvider` | `(create: (control: SkillProviderControl) => SkillProvider): () => void` |
+| `list` | `(options?: SkillViewOptions): Promise<SkillSummary[]>` |
+| `snapshot` | `(options?: SkillViewOptions): Promise<SkillCatalogSnapshot>` |
+| `get` | `(name: string, options?: SkillViewOptions): Promise<SkillDefinition \| undefined>` |
+
+**分层规则【实测】**：`project > runtime > user`（同层内 project 条目 > runtime > user）。
+插件的 skill 落在 **runtime 层**；同名时就近层胜出。
+
+**Skill 文件格式【实测，来自官方 `office-docx/SKILL.md`】**：
+
+```markdown
+---
+name: boujoy-theme-setup
+description: <一句话说明用途与触发时机，英文更稳>
+---
+
+# 正文标题
+
+给模型的指令正文，可用 Markdown、代码块、表格。
+```
+
+⚠️ **待验证**：插件注册的 skill 是否对所有会话可见、是否需要额外作用域。
+
+### 5.2 Host 侧组件（`index.js`）
+
+> ⚠️ **状态：尚未实现（工程代码 0 行）。** 以下为 P0 之后要实现的**规划签名**。
+
+#### 5.2.1 插件元数据（规划）
 
 ```ts
 export const name = 'boujoy-harness'
-export const inject = ['webServer']
+export const inject = ['webServer', 'skills']
 export function apply(ctx: Context): void
 ```
 
-### 5.2 素材路由表（规划）
+> `skills` 用于注册 Agent 适配能力（见 §5.1）。两个服务都是 profile 保证存在的。
+
+#### 5.2.2 素材路由表（规划）
 
 | 路由 | 内容类型 | 说明 |
 |---|---|---|
 | `GET /boujoy/theme.css` | `text/css; charset=utf-8` | 主样式表 |
 | `GET /boujoy/assets/<name>` | 按扩展名 | logo / 纹理 / 图片 |
 | `GET /boujoy/assets/fonts/<name>.woff2` | `font/woff2` | 字体 |
+| `GET /boujoy/config.json` | `application/json` | 运行时配置视图（`no-store`） |
 
-- 实现方式：启动时 `readFileSync` 进内存 `Map`，白名单查表
+- 实现方式：启动时解析素材路径 → 读入内存 `Map`，白名单查表
+- **必须在 handler 开头调 `ctx.connection.requestRejection(req)`**（见 `AGENTS.md` R10）
 - 响应头：`Cache-Control`、`Content-Length`、`Content-Type`
 - 未命中 → `404 text/plain`
 
-### 5.3 首帧注入（规划）
+#### 5.2.3 首帧注入（规划）
 
 ```ts
 const FIRST_FRAME_CSS: string      // 首帧遮罩样式（纯 CSS，覆盖 [data-dsh-boot]）
@@ -388,9 +442,9 @@ window.__boujoyFirstFrame = {
 }
 ```
 
-## 6. Client 半边（`client.js`）
+### 5.3 Client 侧组件（`client.js`）
 
-### 6.1 `apply`（规划）
+#### 5.3.1 `apply`（规划）
 
 ```ts
 export const inject = ['slots', 'theme']
@@ -403,7 +457,7 @@ export function apply(ctx: ClientContext): void
 3. `ctx.slots.inject('shell.overlay', ...)` 注册开屏与氛围层
 4. （可选）注册对话动效相关 slot 或 CSS
 
-### 6.2 主题 token 表（规划）
+#### 5.3.2 主题 token 表（规划）
 
 ```ts
 const TOKENS: ThemeTokenOverrides = {
@@ -413,7 +467,7 @@ const TOKENS: ThemeTokenOverrides = {
 }
 ```
 
-### 6.3 开屏组件（规划）
+#### 5.3.3 开屏组件（规划）
 
 ```tsx
 interface BootScreenProps {
@@ -430,7 +484,7 @@ function BootScreen({ onDone }: BootScreenProps): JSX.Element
 | 退场 | 两段式：内容淡出 → 延迟 → 底幕淡出 |
 | 降级 | `prefers-reduced-motion` 下最短化或跳过 |
 
-### 6.4 氛围层组件（规划）
+#### 5.3.4 氛围层组件（规划）
 
 ```tsx
 interface AmbienceLayerProps {
@@ -443,7 +497,7 @@ function AmbienceLayer(props: AmbienceLayerProps): JSX.Element
 - 常驻循环动画（扫描线 / 呼吸 / 漂移）
 - `reducedMotion` 时关闭循环动画
 
-## 7. 样式文件（规划）
+## 6. 样式文件（规划）
 
 | 文件 | 职责 |
 |---|---|
@@ -451,7 +505,7 @@ function AmbienceLayer(props: AmbienceLayerProps): JSX.Element
 | `overrides.tier3.css` | **三级选择器收容文件**（原生标签 / `:has()` / `[role=]`），文件头写明每个选择器的作用与最后验证版本 |
 | `first-frame.css` | 首帧遮罩（由 host 作为字符串注入，不打成文件） |
 
-## 8. 待补全清单
+## 7. 待补全清单
 
 实现后必须回到本文件补上：
 

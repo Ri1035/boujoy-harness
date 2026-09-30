@@ -8,30 +8,39 @@
 
 ## 这是什么
 
-Boujoy Harness 不只是"一套皮肤"，而是一个**素材与配置驱动的界面自定义框架**。
+Boujoy Harness 是一个**装上就有完整外观的 DSH 主题插件**，
+同时**保留了一套自定义框架**，让想改成自己风格的人有空间。
+
 它不修改 DSH 任何一行核心源码，而是通过 DSH 官方的 Cordis 插件体系
 （bundle + slot 系统 + theme token）实现对界面的改造。
 
-**引擎与内容分离**是本项目的核心设计：
+### 主产品：默认主题
+
+装上去就是一套完整的 Boujoy 外观 —— 开屏动画、品牌配色、字体、字标、背景氛围、对话动效。
+**零操作，不需要读任何文档。**
+
+### 保留的空间：自定义框架
+
+如果你想换成自己的风格，**不用学配置、不用记槽位名**——
+把素材丢进一个文件夹，让 Agent 适配：
 
 ```
-引擎（本项目代码，负责渲染）          内容（用户目录，负责外观）
-  $DSH_HOME/boujoy/
-  ├── boujoy.config.yml   ← 配色 / 动效 / 字体 / 时长
-  └── assets/             ← logo / 字体 / 背景 / 纹理
+$DSH_HOME/boujoy/inbox/     ← 你只放素材，文件名随意
+        │
+        ▼  Agent（随插件分发的 Skill）
+$DSH_HOME/boujoy/assets/    ← 适配后的产物
+$DSH_HOME/boujoy/boujoy.config.yml
 ```
 
-- 换素材：把文件丢进 `$DSH_HOME/boujoy/assets/`，**同名即覆盖**，不用改配置
-- 调配色：改一个 YAML 字段
-- 完全自由：`overrides.css` 里写任意 CSS
-- **插件升级不覆盖用户内容**；卸载也不删除用户素材
+**引擎与内容分离**是本项目的核心设计：代码只负责渲染，外观全在用户目录里。
+插件升级不覆盖你的内容，卸载也不删除。
 
 目标效果：
 
 - **开屏动画** —— 从应用启动到界面就绪的完整片头，且不露出 DSH 自带的 Loading 卡片
 - **风格界面** —— 品牌配色、字体、字标、背景氛围、圆角与材质
 - **对话动画** —— 助手消息入场、流式输出节奏、工具卡片缓动
-- **高度可自定义** —— 12 项能力，其中 11 项零代码
+- **可自定义** —— 12 项能力，其中 11 项零代码、10 项连配置都不用写
 
 详见 [`docs/features-customization.md`](./docs/features-customization.md)。
 
@@ -80,17 +89,20 @@ dsh plugin --profile web add <包名或 tgz 路径>
 dsh web
 ```
 
-装好后，自定义只需操作 `$DSH_HOME/boujoy/`：
+装好后，**默认就已经是一套完整的 Boujoy 外观**。
 
-```yaml
-# $DSH_HOME/boujoy/boujoy.config.yml
-name: "My Harness"
-colors:
-  brand: "#3ba7ff"
-motion:
-  splash:
-    duration: 3.0
+想换成自己的风格时，只需要把素材丢进一个文件夹，然后让 Agent 适配：
+
 ```
+$DSH_HOME/boujoy/inbox/          ← 把图片/字体丢这里，文件名随意
+        │
+        ▼  对 Agent 说："用 inbox 里的素材给我配一套外观"
+$DSH_HOME/boujoy/assets/         ← Agent 适配后的产物
+$DSH_HOME/boujoy/boujoy.config.yml
+```
+
+**你不需要知道有哪些槽位、不需要正确命名文件、不需要写配置**——
+这些都是 Agent 的活（能力随插件以 Skill 形式分发）。
 
 ## ⚠️ 关于 DSH 的版本节奏
 
