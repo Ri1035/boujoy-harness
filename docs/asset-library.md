@@ -180,7 +180,7 @@ advanced:
 
 ### 5.1 一类：DSH 语义 token（被我们覆盖）
 
-见 [`DESIGN.md`](./DESIGN.md) §2.2 的 15 个核心 token + 状态色。
+见 [`DESIGN.md`](./DESIGN.md) §2.2 实测确认的 14 个核心 token（全部为颜色）。
 **只覆盖 `--dsw-alias-*` 层**，不动 `--dsw-static-*`。
 
 ### 5.2 二类：本项目自有变量（`--bj-*`）
@@ -240,12 +240,32 @@ advanced:
 - 配置的读取时机与缓存策略需验证
 - 若 DSH 的 HMR 不监听到该目录，则退化为"重启生效"——**这属于可接受降级**
 
-### 6.2 素材路由的安全要求
+### 6.2 素材路由的安全要求 ⚠️ 这是本项目最大的安全风险点
 
-- **白名单/路径规范化**：拒绝 `..` 穿越，只允许 `boujoy/` 目录内的文件
-- 只暴露已知扩展名（svg/png/jpg/webp/woff2/css）
-- 不暴露 `.yml` 配置文件本身（含用户隐私信息如路径）
-- 正确的 `Content-Type` 与 `Cache-Control`
+**关键事实**【调研】：用 `ctx.webServer.register()` 注册的**自定义路由不会自动继承**
+DSH 的鉴权、Host/Origin 栅栏、CORS 和 TLS。因此路由 handler 必须自己处理。
+
+| # | 要求 | 说明 |
+|---|---|---|
+| 1 | **路径穿越防护** | 只允许 `boujoy/` 目录内的文件；规范化后校验前缀，拒绝 `..` |
+| 2 | **扩展名白名单** | 只暴露 `svg / png / jpg / jpeg / webp / woff2 / css` |
+| 3 | **不暴露配置文件** | `.yml` / `.json` 配置文件本身不通过路由暴露（含用户路径等隐私） |
+| 4 | **Host / Origin 校验** ⚠️ | handler 必须先调 **`ctx.connection.requestRejection(req)`**；返回拒绝值时直接结束响应 |
+| 5 | **正确的 `Content-Type`** | 按扩展名给，不按用户输入推断 |
+| 6 | **`Cache-Control`** | 素材可长缓存；配置文件与 `config.json` 用 `no-store` |
+| 7 | **大小限制** | 拒绝异常大的文件（防止用户误放巨型素材拖垮服务） |
+
+**背景（这条要求从哪来的）**【调研】：
+
+- DSH `0.1.5` 起 web carrier 引入**浏览器会话鉴权**：启动打印 `?token=<launch-token>`，
+  带 token 访问根路径会 303 并种下 `dsh-auth-<sha256(authority)>` cookie；
+  **无 token 无 cookie 一律 401（纯文本）**。
+- 该 cookie 是 **`SameSite=Strict`** → 跨站 iframe 场景下用不了。
+- **自定义路由不在这套保护内**，必须自己补上。
+
+> 这也解释了我们此前实测到的现象：直接 `Invoke-WebRequest http://127.0.0.1:19387/`
+> 得到 **401**。那是宿主自己的鉴权在起作用，**不是我们的路由**——
+> 我们的路由若不自己校验，就会成为一个绕过鉴权的口子。
 
 ---
 

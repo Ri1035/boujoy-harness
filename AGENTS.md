@@ -99,6 +99,10 @@
 | **R6** | **不要用 CSS Modules 哈希类做选择器**（如 `.Mbwy4a_card`） | 随构建变化，必然碎 |
 | **R7** | **不要把中文 `aria-label` 写进选择器** | 参考项目踩过：`button[aria-label="新建会话"]`，语言一换即废 |
 | **R8** | **不要用 `tapIndex` 注入** | 桌面端走 `dsh-app://` 直读 index.html，**从不调用 `renderIndex()`**，是死代码 |
+| **R9** | **不要给 `dsh.client.inject` 填任何服务** | 生态里"面板静默消失/连锁 pending"的根因几乎都是 client 服务依赖。本项目功能不需要任何 client 服务 → **保持空数组** |
+| **R10** | **素材路由必须自己处理鉴权** | `ctx.webServer.register()` 注册的路由**不继承**宿主的鉴权与 Host/Origin 栅栏；handler 必须先调 `ctx.connection.requestRejection(req)` |
+| **R11** | **兼容范围只能写在 `peerDependencies`** | 写进 `dsh.*` 自定义字段、`dependencies`、`engines` 都会被**静默忽略**。只有 `peerDependencies["@deepseek-ai/dsh"]` 会被宿主检查 |
+| **R12** | **不要重定义官方 `--dsw-*` token** | 官方 ui-theme spec **拒绝 token 重定义**。未暴露的项（圆角/阴影/字体）走自有 `--bj-*` 变量 + 自有元素 |
 
 ---
 
@@ -167,11 +171,14 @@
 | 误区 | 实际 |
 |---|---|
 | "改 `app.asar` 里的 CSS 就能换肤" | 归档只读、更新覆盖，且 12967 个文件中找目标成本极高。走插件 |
-| "主题 token 里应该有动效/圆角变量" | **动效时长/缓动 token 完全不存在**（实测扫 3 个官方 bundle 为空集），必须自带；圆角/阴影/毛玻璃**有** token |
+| "主题 token 里应该有圆角/阴影/动效变量" | **实测 `Theme.listTokens` 只返回 14 个 token，`valueType` 全是 `"CSS color"`**。圆角（`--dsw-radius-*`）、阴影（`--dsw-elevation-*`）、字体（`--dsw-font-*`）在官方包产物里**存在但未暴露**，动效时长/缓动则**完全不存在**。→ 这些必须走 C 层自有 `--bj-*` 变量 |
+| "官方文档说 ui-theme 管 motion，所以有动效 token" | 官方文档说的是**官方自己 CSS 里定义了动画**，不等于给第三方暴露了可覆盖 token。实测 token 接口只有颜色 |
 | "`shell.overlay` 里 z-index 开最大就能盖住启动画面" | 不行，时序上 client 插件还没执行 |
 | "参考项目能直接跑" | **没有任何项目声明支持 0.2.0-rc.2**，最高验证到 rc.1 |
 | "顺手把 `better-sidebar` 也装上" | 参考项目明确警告**禁止单独 add**，会双挂载；本项目不需要第三方依赖 |
-| "CSS 覆盖越深越像" | 深 = 碎。三级选择器纪律见 `DESIGN.md` |
+| "CSS 覆盖越深越像" | 深 = 碎。选择器分级纪律见 `DESIGN.md` |
+| "自造个 `dsh.compatibility.*` 字段声明兼容范围" | **宿主不读自定义字段**。只有 `peerDependencies["@deepseek-ai/dsh"]` 会被检查 |
+| "我的素材路由是内部服务，不需要鉴权" | ⚠️ `ctx.webServer.register()` 注册的路由**不继承**宿主的鉴权与 Host/Origin 栅栏，必须自己调 `ctx.connection.requestRejection(req)` |
 
 ---
 
@@ -199,11 +206,38 @@
 
 | 纪律 | 说明 |
 |---|---|
+| **兼容范围必须写在 `peerDependencies`** | ⚠️ 只有 `peerDependencies["@deepseek-ai/dsh"]` 会被宿主检查；写进 `dsh.*` 自定义字段、`dependencies`、`engines` **都会被静默忽略** |
+| **`dsh.client.inject` 保持空数组** | 生态里绝大多数"最惨故障"（面板静默消失、连锁 pending）根因都是 client 服务依赖；本项目功能不需要任何 client 服务，空数组从结构上消灭这类故障 |
 | **只声明验证过的版本** | 不写 `>=0.1.0` 这类宽泛范围；兼容矩阵每行必须对应一次真实验证 |
 | **插件版本与 DSH 版本解耦** | 不为 DSH 改个数字就跟发版；只在接缝真的变了才适配 |
 | **子包依赖显式指定版本** | 用 `latest` 会装到两个月前的版本 |
 | **任何接缝失效都要能降级** | 单点失效不得导致整体崩溃（见下） |
 | **升级适配必须更新 `CHANGELOG.md` 的 `Adapted` 段** | 记录适配的 DSH 版本 + 改动的接缝 |
+
+**semver 陷阱（必须记住）**：宿主用 `semver.satisfies(..., { includePrerelease: true })`，
+所以 `^0.1.7` **不接受** `0.1.7-rc.1`。预发布区间要写显式 tuple，例如
+`>=0.2.0-rc.2 <0.3.0-0`（上界带 `-0` 才能正确排除整个 `0.3.x`）。
+
+**发布节奏硬约束**：DSH 内置 pnpm **默认只安装发布满 24 小时的版本**
+（`minimumReleaseAge`）→ 新版本 24 小时内 `dsh plugin update` 装不上**且不报错**（静默停在旧版）。
+要立刻用需显式 `add '<pkg>@^<ver>'`。
+
+**版本记录的数据来源**：
+
+| 来源 | 状态 |
+|---|---|
+| 官方仓库根 `CHANGELOG.md` | ❌ **不存在**（404） |
+| GitHub **Releases** | ✅ 权威来源，tag 形如 `dsh-v0.2.0-rc.2`，中英双语 |
+| GitHub **Releases Atom feed** | ✅ **推荐**，机器可读（HTML 页面抓不到正文） |
+| 官方 `docs/upgrade-guide/<版本>/` | ✅ 逐版本官方迁移指南（比 release notes 权威） |
+| 社区 [oh-my-dsh/dsh-plugin-upgrade-skill](https://github.com/oh-my-dsh/dsh-plugin-upgrade-skill) | 189 张升级卡，覆盖 `0.1.0-rc.8 → 0.1.7-rc.1`，每卡指向官方 tag 源码 |
+
+> ⚠️ **注意**：官方 release notes **不是破坏性变更台账**——它不含 breaking/迁移章节。
+> 要查破坏性变更，看 `docs/upgrade-guide/` 与 tag 源码。
+>
+> ⚠️ **npm 版本 ≠ GitHub Release 版本**：npm 29 个 vs GitHub 24 个，
+> 且有 2 个版本（`0.1.2-alpha.1`、`0.1.3-alpha.1`）**只有 GitHub Release、npm 上没有**。
+> 只看 npm 会漏掉变更。
 
 **必须能降级的关键路径**：
 
@@ -213,6 +247,6 @@
 | 素材 404 / 损坏 | 回退内置同名素材；再无则隐藏元素 |
 | `data-*` 属性改名 | 该组 CSS 失效，样式局部丢失（不崩） |
 | `[data-dsh-boot]` 改名 | 看门狗退化为 12s 绝对超时（不崩） |
-| DSH 版本超范围 | **安全模式**：只应用 token，不注入 CSS、不播动画 |
+| DSH 版本超范围 | **宿主自动跳过整个 bundle 并恢复官方界面**（官方机制，不需要我们写代码） |
 
 > 完整策略见 [`docs/VERSIONING.md`](./docs/VERSIONING.md)。

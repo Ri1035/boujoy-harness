@@ -409,7 +409,7 @@ export function apply(ctx: ClientContext): void
 const TOKENS: ThemeTokenOverrides = {
   '--dsw-alias-bg-base':       { light: '#…', dark: '#…' },
   '--dsw-alias-bg-layer-1':    { light: '#…', dark: '#…' },
-  // … 覆盖 DESIGN.md §2.2 的 15 个核心 token + 状态色
+  // … 覆盖 DESIGN.md §2.2 实测确认的 14 个核心 token
 }
 ```
 

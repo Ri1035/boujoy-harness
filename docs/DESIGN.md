@@ -36,27 +36,53 @@
 | `--dsw-mask-*` | 1 | 遮罩 | ❌ 不碰 |
 | `--dsw-corner-shape` | 1 | 超椭圆平滑 | ⚠️ 标 `@supports` 才安全 |
 
-### 2.2 优先级最高的 15 个 alias token（改这些能覆盖约 80% 观感）
+### 2.2 可直接覆盖的核心 token（实测 14 个）
 
-| Token | 作用 |
+经 `Theme.listTokens` **实测确认**——这 14 个是**当前可覆盖接口暴露的全部 token**，
+且**每一个的 `valueType` 都是 `"CSS color"`**（没有圆角、阴影、动效等非颜色项）：
+
+| # | Token | 作用 |
+|---|---|---|
+| 1 | `--dsw-alias-bg-base` | 应用底色 |
+| 2 | `--dsw-alias-bg-layer-1` | 一级抬升面 |
+| 3 | `--dsw-alias-bg-layer-2` | 二级嵌套面 |
+| 4 | `--dsw-alias-bg-overlay` | 浮层/弹窗底 |
+| 5 | `--dsw-alias-border-l1` | 一级细边框 |
+| 6 | `--dsw-alias-border-l2` | 二级强边框 |
+| 7 | `--dsw-alias-brand-primary` | 品牌主色 |
+| 8 | `--dsw-alias-label-primary` | 主文字 |
+| 9 | `--dsw-alias-label-secondary` | 次文字 |
+| 10 | `--dsw-alias-state-error-primary` | 错误态 |
+| 11 | `--dsw-alias-state-idle-primary` | 空闲态 |
+| 12 | `--dsw-alias-state-success-primary` | 成功态 |
+| 13 | `--dsw-alias-state-warn-primary` | 警告态 |
+| 14 | `--dsw-specific-sidebar-fill` | 侧栏底色与标题行 |
+
+> **注意**：全部要求 `{ light, dark }` 成对提供。
+
+#### 另外存在的 token（不在可覆盖接口内）
+
+以下 token 在官方包产物里**确实存在**，但**未出现在 `Theme.listTokens` 的返回中**：
+
+| Token | 状态 |
 |---|---|
-| `--dsw-alias-bg-base` | 应用底色 |
-| `--dsw-alias-bg-layer-1` | 一级抬升面 |
-| `--dsw-alias-bg-layer-2` | 二级嵌套面 |
-| `--dsw-alias-bg-layer-3` | 三级面 |
-| `--dsw-alias-bg-overlay` | 浮层/弹窗底 |
-| `--dsw-alias-border-l1` | 一级细边框 |
-| `--dsw-alias-border-l2` | 二级强边框 |
-| `--dsw-alias-brand-primary` | 品牌主色 |
-| `--dsw-alias-brand-text` | 品牌文字色 |
-| `--dsw-alias-label-primary` | 主文字 |
-| `--dsw-alias-label-secondary` | 次文字 |
-| `--dsw-alias-label-tertiary` | 三级文字 |
-| `--dsw-alias-state-error-primary` | 错误态 |
-| `--dsw-alias-state-success-primary` | 成功态 |
-| `--dsw-alias-state-warn-primary` | 警告态 |
+| `--dsw-alias-bg-layer-3` | 存在但未暴露 |
+| `--dsw-alias-brand-text` | 存在但未暴露 |
+| `--dsw-alias-label-tertiary` | 存在但未暴露 |
+| `--dsw-radius-*`（6 个） | 存在但未暴露 → **圆角不能通过 token 接口改** |
+| `--dsw-shadow-lv*` / `--dsw-elevation-*` | 同上级别 |
+| `--dsw-font-*`（182 个） | 同上级别 |
 
-另有区域专属：`--dsw-specific-sidebar-fill`（侧栏底色）等 11 个。
+⚠️ **这产生一个重要推论**：官方 `web-styling.md` 声称 `ui-theme` 管辖
+"typography, **motion**, gradients, shadows, scrollbar styles"——那是说
+**官方自己 CSS 里定义了这些**，**不等于**给第三方暴露了对应的可覆盖 token。
+
+实测结论：**通过官方 token 接口，只能改颜色。** 圆角、阴影、动效节奏
+都必须走 C 层 CSS（`--bj-*` 自有变量 + 选择器覆盖）。
+
+> 未被暴露的 token 仍可尝试用 CSS 直接重定义，但官方规范说
+> "the ui-theme spec **rejects** token redefinitions" → 有被判违规的风险。
+> 因此本项目对未暴露项**一律走自有变量 + 自有元素**，不去重定义官方 token。
 
 ### 2.3 覆盖方式【实测 API】
 

@@ -142,19 +142,23 @@
    插件版本、DSH 版本、用户素材版本 三者独立演进
    → 用户换素材不会影响插件代码；插件升级不覆盖用户配置
 
-第 2 道：覆盖范围声明
-   在 package.json 声明已知兼容的 DSH 版本范围
-   → 用户安装时可判断是否匹配
+第 2 道：声明式兼容范围（★ 最省事的一道，由宿主执行）
+   package.json 的 peerDependencies["@deepseek-ai/dsh"] 声明验证过的范围
+   → 超范围时 DSH 自己拒绝安装 / 跳过 bundle 并恢复官方界面
+   → "不崩"由宿主保证，不需要我们写代码（见 §3.2）
 
-第 3 道：运行期探测 + 安全模式
-   检测到版本超出范围 → 只应用 token，不注入 CSS / 不播动画
-   → 宁可少效果，不让界面不可用（见 asset-library.md §8）
+第 3 道：结构上消灭依赖（★ 性价比最高）
+   dsh.client.inject: []
+   → 不等待任何 client 服务，结构上不可能出现 pending / 静默消失
+   → 生态里绝大多数"最惨故障"根因都是 client 服务依赖
 
 第 4 道：分层降级
    单个接缝失效时局部降级，而非整体崩溃
    例：首帧注入失败 → 退回纯 client 开屏（漏 271ms 但功能正常）
        素材 404 → 回退内置素材；再无则纯色块
        字体失败 → 回退官方字体
+       token 覆盖失败 → 官方配色
+       任一条失败只丢该条视觉效果，不级联
 ```
 
 ### 2.3 明确不做的事
@@ -186,27 +190,60 @@
 
 **理由**：插件不需要跟随 DSH 的每个 rc，也不需要因为 DSH 改了个数字就跟着发版。
 
-### 3.2 兼容范围声明（草案）
+### 3.2 兼容范围声明【已修正 —— 用标准 `peerDependencies`】
 
-在插件 `package.json` 声明（⚠️ 字段名待实现时确认，需避免与 DSH 既有字段冲突）：
+> ⚠️ **本节曾写过一版错误设计**：自造 `dsh.compatibility.dshVersions` / `safeModeBelow` / `verifiedAt`
+> 字段。**宿主不会读这些自定义字段，会被静默忽略。** 已修正为官方机制。
+
+**唯一有效的做法是在 `peerDependencies` 里声明 `@deepseek-ai/dsh`。**
 
 ```jsonc
 {
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh": ">=0.2.0-rc.2 <0.3.0-0"
+  },
   "dsh": {
-    "compatibility": {
-      // 已验证可用的 DSH 版本
-      "dshVersions": ["0.2.0-rc.2"],
-      // 已知需要安全模式的范围
-      "safeModeBelow": "0.2.0-rc.1",
-      // 最后验证日期，便于判断新鲜度
-      "verifiedAt": "2026-09-30"
-    }
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": { "inject": [], "platform": "web" }
   }
 }
 ```
 
-**原则**：**只声明验证过的版本**，不写宽泛范围（如 `>=0.1.0`）——
-那等于对用户撒谎。
+**DSH `0.1.7-rc.1` 起，peer 兼容是强制的**【调研】：
+
+| 时机 | 行为 |
+|---|---|
+| 安装时 | `dsh plugin --profile <p> add <spec>` 在 pnpm 之前就拒绝不匹配的插件并 `exit 1`，提示 `installation rejected: ... Running it may cause crashes or data loss.` |
+| 启动时 | 不匹配的 profile bundle 被**跳过**（`dsh: skipping profile bundle "X"`）并恢复官方界面，而非崩溃 |
+
+**检查范围（很关键）**：
+
+| 写在哪 | 是否被检查 |
+|---|---|
+| `peerDependencies["@deepseek-ai/dsh"]` 或 `@deepseek-ai/dsh-*` | ✅ **会被检查** |
+| `dependencies` | ❌ 不检查 |
+| `engines` | ❌ 不检查（信息性） |
+| `dsh.*` 自定义字段 | ❌ 不检查 |
+| 不声明 DSH peer 的插件 | ❌ 永不被拒（同时也失去保护） |
+
+**semver 陷阱**【调研】：
+
+- 宿主用 `semver.satisfies(runtime, range, { includePrerelease: true })`，需 semver ≥ 7.8.3
+- ⚠️ **`^0.1.7` 不接受 `0.1.7-rc.1`**；`~0.1.7`、`>=0.1.7` 在所有预发布版本上都会被拒
+- 预发布区间必须写成显式的预发布 tuple，例如 `>=0.1.7-rc.1 <0.3.0-0`
+  （注意上界用 `<0.3.0-0` 这种带 `-0` 的写法才能正确排除整个 `0.3.x`）
+
+**豁免机制**：存在 `<profile>/compatibility.json`，形如
+`{ "<name>@<version>": ["<exact dsh version>"] }`；**插件或 DSH 任一方换版本即失效**。
+用户自助放行命令：
+
+```bash
+dsh plugin --profile web allow-version <pkg>@<版本> --dsh-version <版本> --accept-risk
+```
+
+**原则**：**只声明验证过的范围**，下界是你真实验证过的版本，上界取下一个大版本。
+不写 `>=0.1.0` 这类宽泛范围——那等于对用户撒谎，而且会被强制门当场打脸。
 
 ---
 
@@ -348,13 +385,53 @@ Invoke-WebRequest "https://github.com/deepseek-ai/deepseek-harness/releases.atom
 | 接缝风险分层 | 本项目调研 | 见 [`../research/REPORT.md`](../research/REPORT.md) | 【调研】 |
 | `settingsScope` 更名影响 | 社区 issue | `dsh-market/dsh-market#722`（抓取失败，仅搜索结果） | **未确认** |
 
-### 待补：逐版本破坏性变更清单
+### 破坏性变更清单（来源：社区迁移卡库，覆盖 `0.1.0-rc.8 → 0.1.7-rc.1`）
 
-| 状态 | 说明 |
+> **来源**【调研】：社区仓库 [oh-my-dsh/dsh-plugin-upgrade-skill](https://github.com/oh-my-dsh/dsh-plugin-upgrade-skill)
+> 维护了 **189 张升级说明卡 + 13 条跨版本对策**，每卡带 before/after、症状、
+> 迁移配方，并**钉在官方 tag 源码**上。以下为与本项目相关的摘录。
+
+| 版本边 | 变更 | 对本项目的影响 |
+|---|---|---|
+| `0.1.0-rc.8 → 0.1.1-rc.1` | **`httpServer` → `webServer`**、`tasks` → `jobs`；**`webServer.register` 路由形状不变** | 🟡 直接改名即可；我们的素材路由写法不受影响 |
+| 同上 | `dshClient` → `dsh.client`；若字段名错，**client 半边不进名册、无报错、UI 静默消失** | 🔴 **本项目必须用 `dsh.client`**，写错会静默失效 |
+| `0.1.1-rc.2 → 0.1.2-alpha.1` | **`@deepseek-ai/dsh-client-runtime` 被删除**（该边共删 5 个包） | 🟢 本项目**不依赖**任何 `dsh-client-runtime`；`dsh.client.inject: []` 从结构上免疫 |
+| 同上 | 若 `dsh.client.inject` 列了已删除的包 → **装配行永久 pending、面板静默消失** | 🔴 再次印证 **inject 必须为空数组** |
+| `0.1.5-alpha.1 → 0.1.5-alpha.2` | **slot 大重排**：`conversation` → `main.conversation`；`rightbar` 变 root 作用域并拆出 `rightbar.session` | 🔴 **本项目只注册 `shell.overlay`**，天然免疫 |
+| 同上 | `ctx.workspaces` 职责拆分（导航方法移到 `ctx.uiWorkspace`） | 🟢 本项目不碰 |
+| `0.1.6-alpha.2 → 0.1.7-alpha.1` | **UI primitives 图标改名：所有 `*16` 导出消失，且无别名**。症状 `Minified React error #130` | 🟠 本项目**不使用官方图标组件**（自带 SVG），但若将来用需注意 |
+| 同上 | **settings 换代**：`ctx.settings.register` 不再存在；全局 `settings.yaml` 只做一次性导入 | 🔴 **本项目的用户配置不走 DSH settings**（走自己的 `$DSH_HOME/boujoy/boujoy.config.yml`）→ 天然免疫 |
+| 同上 | `dsh.bundle.patch` 由 `string` 扩为 `string \| string[]` | 🟢 **单文件写法仍有效**，向后兼容 |
+| `0.1.7-rc.1` | **peer 兼容强制化**（安装拒绝 + 启动跳过） | 🟢 **利好**：我们声明 `peerDependencies` 就获得官方保护 |
+| `0.1.5` | **web carrier 引入浏览器会话鉴权**；自定义路由**不继承**鉴权与 Host/Origin 栅栏 | 🔴 **本项目素材路由必须自己调 `ctx.connection.requestRejection(req)`** |
+
+**一个极易踩的静默坑**：patch 里若 `id` 找不到，**只 warn 不报错、静默失效**
+（`patch: entry %C not found`）。→ 覆盖官方行时务必用 `--dump-config` 验证真的生效了。
+
+### 与本项目的关系总结
+
+**令人安心的一点**：本项目刻意选择的极窄接缝集（`overrideTokens` / `shell.overlay` /
+`index-inject` / `dsh.client.inject: []`）**恰好避开了上表所有红色项**。
+
+| 本项目依赖的 | 历史改名记录 | 结论 |
+|---|---|---|
+| `ctx.theme.overrideTokens` + `--dsw-alias-*` | **全走廊零次**（负证据） | 最稳 |
+| `shell.overlay` | **全走廊零次**（负证据，仅 1 次能力描述） | 最稳 |
+| `webserver/index-inject` | **全走廊零次**（负证据） | 较稳 |
+| bundle / patch 机制 | 变过但**向后兼容** | 稳 |
+| 官方 `data-*` 结构属性 | 卡库**根本不覆盖这层** | ⚠️ 不在契约内 |
+| 官方组件 DOM 结构 | 同上 | ⚠️ 不在契约内 |
+
+> ⚠️ **"没有记录"不等于"官方承诺稳定"**——这是负证据，不是保证。
+> 仍必须靠每版的实测 + 兼容矩阵来维持。
+
+### 明确"未确认"的项目（不要当结论用）
+
+| 项 | 状态 |
 |---|---|
-| ⏳ 进行中 | 一次专门的破坏性变更调研正在进行，完成后会补入本节 |
-| 已知线索（**均未逐一验证**） | ① `@deepseek-ai/dsh-client-runtime` 在 0.1.2 被删除<br>② `ctx.httpServer` → `ctx.webServer` 更名<br>③ `ctx.workspace` → `ctx.workspaceRegistry` 更名<br>④ settings API 在 0.1.7-rc.1 被替换（`settingsScope` → `configForms`）<br>⑤ slot 系统是否有破坏性调整 |
-
-> ⚠️ 上表线索来自社区项目的兼容说明与搜索结果，**尚未逐条核实出处**。
-> 在写进正式结论前，必须以官方 release notes 或源码为准确认。
+| `ctx.workspace` → `ctx.workspaceRegistry` 的确切版本与是否有过渡别名 | **未确认**（只能确认 master 与 0.1.5-rc.1 都叫 `workspaceRegistry`，且无卡记为破坏性改名） |
+| `settingsScope` → `configForms` 落在哪条 alpha 边 | **未确认**（只被 jump 卡覆盖整段）。但 `ctx.settings.register` 移除**已确认为 `0.1.7-alpha.1`** |
+| 官方 `docs/upgrade-guide/v0.1.7-rc.2/*` 正文 | **未取到**（API 403 限流、raw 404）——**这是最权威的破坏性变更来源，值得再试** |
+| `0.1.7-rc.2 → 0.2.0-rc.2`（**我们的目标版本**） | **社区卡库未覆盖**（上界是 0.1.7-rc.1）→ 只能用本地实测 + tag 源码比对 |
+| `peerDependenciesMeta.optional: true` 是否豁免强制门 | **未确认**（有主题插件的 README 行为暗示不豁免） |
 

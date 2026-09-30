@@ -58,6 +58,10 @@
 - [ ] **T0.3** 实现 host 素材路由（`inject: ['webServer']` + `webServer.register({kind:'prefix'})` + 白名单 Map + `ctx.effect`）
   - 验收：`curl /boujoy/assets/<file>` 返回 200 与正确 content-type；未知路径返回 404
   - 注意：白名单写法，防路径穿越；只暴露已知扩展名
+  - 🆕 **必须在 handler 开头调 `ctx.connection.requestRejection(req)`** —— 自定义路由**不继承**宿主鉴权与 Host/Origin 栅栏（见 `AGENTS.md` R10）
+- [ ] 🆕 **T0.3b** 素材路由安全自检：路径穿越（`..`）、非法扩展名、超大文件、跨源请求 四项各写一个用例
+- [ ] 🆕 **T0.3c** `package.json` 声明 `peerDependencies["@deepseek-ai/dsh"]`（范围取真实验证过的下界）与 `dsh.client.inject: []`
+  - 验收：用 `--dump-config` 确认插件层正常；用一个超范围版本验证宿主确实会跳过
 - [ ] **T0.4** 装进 `web` profile，验证插件被加载（`dsh --profile web --dump-config` 出现插件层）
 - [ ] 🆕 **T0.5 配置系统**：读取 `$DSH_HOME/boujoy/boujoy.config.yml`（不存在则全用默认）
 - [ ] 🆕 **T0.6 配置校验**：字段类型/范围/颜色格式校验，错误要**带行号的人话报错**，单项失败不拖垮整体
@@ -156,6 +160,11 @@
 | **D10** | **引入安全模式（Safe Mode）** | DSH 平均 1.77 天一个版本且官方声明会有破坏性变更；宁可少效果不能让界面不可用 | ✅ 已定 |
 | **D11** | **插件版本与 DSH 版本解耦**，只用兼容矩阵关联 | 追赶每个 rc 不现实；只声明真实验证过的版本，不做宽泛承诺 | ✅ 已定 |
 | **D12** | **子包依赖必须显式指定版本** | 实测所有子包 `latest` 停在 `0.0.1-rc.1`，用 `latest` 会装到两个月前的版本 | ✅ 已定 |
+| **D13** | **兼容范围用标准 `peerDependencies["@deepseek-ai/dsh"]`** | 起先设计为自造 `dsh.compatibility.*` 字段，**实测/调研证实宿主不读自定义字段**；官方从 `0.1.7-rc.1` 起强制校验 peerDependencies | ✅ 已定（修正过一次） |
+| **D14** | **`dsh.client.inject` 保持空数组** | 生态中"面板静默消失/连锁 pending"的根因几乎都是 client 服务依赖；本项目功能不需要任何 client 服务 | ✅ 已定 |
+| **D15** | **只用 4 条最窄接缝**：`overrideTokens` / `shell.overlay` / `index-inject` / bundle 机制 | 189 张社区升级卡中，这 4 条在 `0.1.0-rc.8 → 0.1.7-rc.1` 全走廊**零改名记录**；而 slot 名称、settings API、图标导出名都改过 | ✅ 已定 |
+| **D16** | **不碰官方 settings 通道，用户配置走自有文件** | 官方 settings API 在 `0.1.7-alpha.1` 整体换代（`ctx.settings.register` 移除、`settingsScope`→`configForms`）；走自有 `$DSH_HOME/boujoy/boujoy.config.yml` 天然免疫 | ✅ 已定 |
+| **D17** | **token 接口只能改颜色，其余走自有变量** | 实测 `Theme.listTokens` 只返回 14 个 token 且 `valueType` 全为 `"CSS color"`；圆角/阴影/字体存在但未暴露；官方 spec **拒绝 token 重定义** | ✅ 已定 |
 
 ---
 
