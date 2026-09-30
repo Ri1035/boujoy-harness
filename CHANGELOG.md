@@ -16,33 +16,57 @@
 
 ### Added
 
-- 建立项目文档体系（8 份）
-  - `AGENTS.md` —— AI 协作入口：环境事实、8 条红线、技术框架、验证手段
+- 🆕 `HANDOFF.md` —— **转手文档**（换设备 / 换会话继续用）
+  - 自包含：30 秒接手指南、环境事实、17 条关键决策、**六个必须知道的技术事实**
+  - 换设备后需重新确认的清单、下一步该做什么、11 项阻塞、协作约定、已踩过的 11 个坑
+- 🆕 `skills/boujoy-theme-setup/SKILL.md` —— **Agent 适配能力**（随插件分发）
+  - **自动触发**：description 写成列举式触发条件（外观/主题/换肤/品牌/logo/配色/字体/背景/开屏/inbox）
+  - 含 10 项素材槽位精简表、判断线索、7 步工作流、格式处理、边界与禁区
+- 🆕 **槽位全量清单**（`docs/asset-library.md` §3）—— 用户要求"把可自定义的元素组件全部写出来"
+  - 🟢 内容级 **34 项**（14 个颜色 token + 20 个素材槽位）
+  - 🟡 样式级 **13 项**（需 C 层 CSS）
+  - 🔵 结构级 **30 项**（需注册 slot / 写组件）
+  - ⛔ 明确不可自定义 **5 类**（写进红线）
+  - 每项标注稳定性（S/M/X），并提供「最小可用六项集合」
+- 🆕 槽位规格做成**单一数据源** `plugin/lib/slots.js`（Agent 依据 / doctor 校验器 / 文档共用）
+- **文档体系（第一批，8 份）**
+  - `AGENTS.md` —— AI 协作入口：环境事实、12 条红线、技术框架、验证手段
   - `docs/TODO.md` —— 进度真相源：P0–P7 分期、阻塞项、决策记录（ADR）
-  - `docs/DESIGN.md` —— 视觉规范：403 个 `--dsw-*` token 分层、选择器四级纪律、动效变量
+  - `docs/DESIGN.md` —— 视觉规范：403 个 `--dsw-*` 变量分层、选择器四级纪律、动效变量
   - `docs/project-overview.md` —— 目标拆解为可验收条目、范围与非范围
   - `docs/architecture.md` —— A/B/C 分层、271ms 启动时序、三条数据流、卸载契约
   - `docs/development.md` —— 工具链路径、命令、7 大类回归清单
   - `docs/component-api.md` —— 官方 API 实测契约 + 自有组件规划签名
   - `docs/user-guide.md` —— 用户手册
-- 新增 `docs/asset-library.md` —— **素材库与自定义配置规范**（框架目标的核心设计）
-  - 双目录优先级模型（`$DSH_HOME/boujoy/` 覆盖内置 `assets/`）
-  - 配置文件完整字段草案（配色 / 动效 / 字体 / 素材 / 高级）
-  - 素材替换清单与规格要求（logo / 字体 / 纹理 / 开屏）
-  - 配置校验规则与失败降级行为
-  - 安全模式（Safe Mode）设计
-- 新增 `docs/features-customization.md` —— **高度自定义能力说明**
-  - 12 项能力矩阵（11 项零代码）
-  - 三个自定义深度层次
-  - 引擎与内容分离的架构理由
-- 新增 `docs/VERSIONING.md` —— **版本管理、兼容策略与变更日志规范**
-  - DSH 版本节奏量化画像（49.6 天 / 29 个版本 / 平均 1.77 天）
-  - dist-tags 陷阱（子包 `latest` 停在 `0.0.1-rc.1`）
-  - 接缝风险分层表
-  - 兼容策略四道防线
-  - 本插件版本编号规则与兼容矩阵
-  - 版本适配工作流
-- 新增本文件 `CHANGELOG.md`
+- **文档体系（第二批，4 份）**
+  - `docs/asset-library.md` —— 素材库与自定义配置规范（后续重写为 Agent 适配版）
+  - `docs/features-customization.md` —— 高度自定义能力说明
+  - `docs/VERSIONING.md` —— 版本管理、兼容策略与变更日志规范
+  - `CHANGELOG.md` —— 本文件
+
+### Changed
+
+- **用户侧接口从"同名覆盖"改为"素材收件箱 + Agent 适配"**
+  - 原设计要求用户知道槽位名、正确命名、懂格式、写配置
+  - 新设计：用户只把素材丢进 `$DSH_HOME/boujoy/inbox/`（文件名随意），由 Agent 完成适配
+- **产品定位澄清**：默认主题是主产品，自定义框架是留给别人的空间
+  - 三档体验（默认 / 换素材 / 精调），前两档**都不需要读文档**
+  - 顺序纪律：P1–P3 先做好默认主题，P3.5 才做适配能力
+- `docs/asset-library.md` 整体重写为 Agent 适配版（§0–§12），并修正章节编号
+
+- 建立项目文档体系（8 份）
+  - `AGENTS.md` —— AI 协作入口：环境事实、12 条红线、技术框架、验证手段
+  - `docs/TODO.md` —— 进度真相源：P0–P7 分期、阻塞项、决策记录（ADR）
+  - `docs/DESIGN.md` —— 视觉规范：403 个 `--dsw-*` 变量分层、选择器四级纪律、动效变量
+  - `docs/project-overview.md` —— 目标拆解为可验收条目、范围与非范围
+  - `docs/architecture.md` —— A/B/C 分层、271ms 启动时序、三条数据流、卸载契约
+  - `docs/development.md` —— 工具链路径、命令、7 大类回归清单
+  - `docs/component-api.md` —— 官方 API 实测契约 + 自有组件规划签名
+  - `docs/user-guide.md` —— 用户手册
+- `docs/asset-library.md` —— 素材库与自定义配置规范
+- `docs/features-customization.md` —— 高度自定义能力说明
+- `docs/VERSIONING.md` —— 版本管理、兼容策略与变更日志规范
+- 本文件 `CHANGELOG.md`
 
 ### Security
 

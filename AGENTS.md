@@ -28,10 +28,13 @@
 2. [`docs/TODO.md`](./docs/TODO.md) —— **当前进度与下一步**（跨会话续作的第一站）
 3. [`docs/project-overview.md`](./docs/project-overview.md) —— 目标与范围
 4. [`docs/architecture.md`](./docs/architecture.md) —— 技术框架，动手前必读
-5. [`docs/asset-library.md`](./docs/asset-library.md) —— **框架目标的实现规范**（改自定义能力时必读）
+5. [`docs/asset-library.md`](./docs/asset-library.md) —— **槽位全量清单（34 项内容级可自定义）+ Agent 适配规范**
 6. 按任务需要：`docs/DESIGN.md`（改视觉时）、`docs/features-customization.md`（改能力时）、
    `docs/VERSIONING.md`（涉及版本/兼容时）、`docs/development.md`（跑命令时）、
    `docs/component-api.md`（调 API 时）
+
+> 🆕 **换设备 / 换会话接手时，先读 [`HANDOFF.md`](./HANDOFF.md)** —— 它是自包含的转手文档，
+> 包含环境事实、六个关键结论、阻塞项、下一步该做什么、以及本项目踩过的坑。
 
 > 只有 `docs/user-guide.md` 是给最终用户看的，AI 不需要主动读，除非要改用户文档。
 

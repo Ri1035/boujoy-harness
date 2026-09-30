@@ -44,8 +44,8 @@
 | **B7** | 用途：自用 / 分发（决定是否按可发布标准做） | 全程 | ⏳ 待决策 |
 | **B8** | 🆕 配置文件格式与文件名确认（YAML vs JSON；`boujoy.config.yml`？） | P0 | ⏳ 待决策 |
 | **B9** | 🆕 用户自定义目录定名（建议 `$DSH_HOME/boujoy/`） | P0 | ⏳ 待确认 |
-| **B10** | 🆕 槽位规格定稿（`docs/asset-library.md` §3 的 10 个槽位是否够用/是否要加） | P0 / P3.5 | ⏳ 待确认 |
-| **B11** | 🆕 适配 Skill 的触发方式（自动触发 vs 用户显式 `/skill boujoy-theme-setup`） | P3.5 | ⏳ 待决策 |
+| **B10** | 🆕 槽位清单复核（`docs/asset-library.md` §3 的 **34 项内容级**是否够用） | P0 / P3.5 | ⏳ 待确认 |
+| ~~B11~~ | ~~适配 Skill 触发方式~~ → ✅ **已解除：采用自动触发** | P3.5 | ✅ 已定（D18） |
 
 ---
 
@@ -175,6 +175,9 @@
 | **D15** | **只用 4 条最窄接缝**：`overrideTokens` / `shell.overlay` / `index-inject` / bundle 机制 | 189 张社区升级卡中，这 4 条在 `0.1.0-rc.8 → 0.1.7-rc.1` 全走廊**零改名记录**；而 slot 名称、settings API、图标导出名都改过 | ✅ 已定 |
 | **D16** | **不碰官方 settings 通道，用户配置走自有文件** | 官方 settings API 在 `0.1.7-alpha.1` 整体换代（`ctx.settings.register` 移除、`settingsScope`→`configForms`）；走自有 `$DSH_HOME/boujoy/boujoy.config.yml` 天然免疫 | ✅ 已定 |
 | **D17** | **token 接口只能改颜色，其余走自有变量** | 实测 `Theme.listTokens` 只返回 14 个 token 且 `valueType` 全为 `"CSS color"`；圆角/阴影/字体存在但未暴露；官方 spec **拒绝 token 重定义** | ✅ 已定 |
+| **D18** | **适配 Skill 采用自动触发** | 用户明确要求"自动触发"；Skill 的 `description` 已写成列举式触发条件，覆盖外观/主题/换肤/logo/配色/字体/背景/开屏/inbox 等话题 | ✅ 已定 |
+| **D19** | **槽位清单扩展为 34 项内容级 + 13 项样式级 + 30 项结构级** | 用户要求"把可以自定义的元素组件全部写出来"；分 🟢内容/🟡样式/🔵结构 三级，标注稳定性 | ✅ 已定（待 B10 复核） |
+| **D20** | **槽位规格做成单一数据源 `plugin/lib/slots.js`** | Agent 适配依据、`doctor` 校验器、文档 §3 三者共用同一份真相，改一处即全同步 | ✅ 已定 |
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: boujoy-theme-setup
-description: Configure the Boujoy Harness interface theme from a folder of user-supplied assets. Use when the user asks to apply, customize, change, or set up their Boujoy/DSH theme appearance, or drops images/fonts into $DSH_HOME/boujoy/inbox and wants them used. Maps arbitrary asset files to theme slots, generates the config, extracts brand colors, and validates the result.
+description: Configure or restyle the Boujoy Harness interface theme. Load this skill AUTOMATICALLY, without being asked, whenever any of these is true - the user mentions changing, customizing, restyling, rebranding, skinning, or theming their DSH/Boujoy appearance; the user mentions a logo, brand color, font, background, wallpaper, splash screen, or boot animation; the user asks to make the interface look different, more like theirs, or like some reference; the user points at, drops files into, or asks about the asset folder $DSH_HOME/boujoy/inbox or boujoy.config.yml; the user asks what is customizable or which elements can be changed. Also load it when the user supplies images or fonts and the intent is appearance rather than analysis. This skill owns all appearance customization for this project.
 ---
 
 # Boujoy 素材适配
@@ -8,6 +8,12 @@ description: Configure the Boujoy Harness interface theme from a folder of user-
 把用户随手收集的素材，适配成 Boujoy Harness 主题的外观配置。
 
 **用户不需要懂任何槽位名或配置语法**——那是你的工作。用户只负责"把文件放进 inbox"。
+
+> **触发方式：自动。** 用户不需要说出"skill"这个词。
+> 只要话题涉及外观/主题/换肤/品牌/logo/配色/字体/背景/开屏，
+> 或指向 `inbox`、`boujoy.config.yml`、任何素材文件，**就应当自动加载本技能**。
+>
+> 完整槽位清单（30 项）见仓库 `docs/asset-library.md` §2；本文件是执行用的精简版。
 
 ## 为什么这么做
 
